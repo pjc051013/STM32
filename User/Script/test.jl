@@ -7,6 +7,7 @@ Author: pjc_k
 Date: 2026/7/9
 =#
 
-for i in 5:-1:1
-    println(i)
-end
+a = 'a'
+#b = a[2]
+println(a-'0')
+#println(b)

@@ -6,7 +6,7 @@ Description:
 Author: pjc_k
 Date: 2026/7/8
 =#
-
+#逆転する
 function main(input)
     a = copy(input)
     at = 1
@@ -16,10 +16,8 @@ function main(input)
         if input[i] == ' '
             if h < t
                 l = t - h
-                a[at:at + l - 1] = input[h+1:t]
-                at += l
-                a[at] = ' '
-                at += 1
+                a[at:at + l] = push!(input[h+1:t],' ')
+                at += l+1
             end
             t = h - 1
         end

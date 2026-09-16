@@ -18,10 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include <stdint.h>
+#include <stdio.h>
+#include <ptOS.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+extern uint32_t asm_twoadd(uint32_t a, uint32_t b);
+extern uint32_t asm_threeadd(uint32_t a, uint32_t b, uint32_t c);
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +69,10 @@ void TIM_Blink_Start(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+int add(void) {
+    static int a = 777;
+    return a++;
+};
 /* USER CODE END 0 */
 
 /**
@@ -74,8 +81,25 @@ void TIM_Blink_Start(void);
   */
 int main(void)
 {
-
+    int a = 0;
+    for (int i = 0; i < 3; i++) {
+        a = add();
+    }
+// int a = 1;
   /* USER CODE BEGIN 1 */
+//     uint32_t a = 10;
+// uint32_t b = 20;
+// uint32_t result;
+//
+// __asm volatile (
+//     "add %[result], %[a], %[b]"
+//     : [result] "=r" (result)
+//     : [a] "r" (a),
+//       [b] "r" (b)
+// );
+    uint32_t result;
+
+    result = asm_threeadd(1, 2, 3);
 
   /* USER CODE END 1 */
 
@@ -109,10 +133,15 @@ int main(void)
     HAL_TIM_Base_Start_IT(&htim2);
     HAL_TIM_Base_Start_IT(&htim16);
     HAL_TIM_Base_Start_IT(&htim17);
+    HAL_NVIC_SetPriority(SysTick_IRQn, 14, 0);
+    HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
+    ptOS_Init();
+    ptOS_Start();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
 

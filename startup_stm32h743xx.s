@@ -76,7 +76,6 @@ CopyDataInit:
   ldr r4, [r2, r3]
   str r4, [r0, r3]
   adds r3, r3, #4
-
 LoopCopyDataInit:
   adds r4, r0, r3
   cmp r4, r1
@@ -750,5 +749,4 @@ g_pfnVectors:
 
    .weak      WAKEUP_PIN_IRQHandler
    .thumb_set WAKEUP_PIN_IRQHandler,Default_Handler
-
 

@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32h7xx_it.h"
+#include "ptOS.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -147,7 +148,13 @@ void UsageFault_Handler(void)
 void SVC_Handler(void)
 {
   /* USER CODE BEGIN SVCall_IRQn 0 */
-
+    // int a =1;
+    // a++;
+    SCB->ICSR = SCB_ICSR_PENDSVSET_Msk;
+    //SCB:System Control Block
+    //ICSR:Interrupt Control and State Register
+    __DSB();
+    __ISB();
   /* USER CODE END SVCall_IRQn 0 */
   /* USER CODE BEGIN SVCall_IRQn 1 */
 
@@ -170,28 +177,70 @@ void DebugMon_Handler(void)
 /**
   * @brief This function handles Pendable request for system service.
   */
-void PendSV_Handler(void)
-{
-  /* USER CODE BEGIN PendSV_IRQn 0 */
+__attribute__((naked)) void PendSV_Handler(void) {
+    __asm volatile (
 
-  /* USER CODE END PendSV_IRQn 0 */
-  /* USER CODE BEGIN PendSV_IRQn 1 */
+    /* 判断是否第一次启动 */
+    "ldr   r3, =ptOS_start_first \n"
+    "ldr   r2, [r3]              \n"
+    "cmp   r2, #1                \n"
+    "beq   first_start           \n"
 
-  /* USER CODE END PendSV_IRQn 1 */
+    /* 普通任务切换 */
+        "mrs   r0, psp               \n"
+        "stmdb r0!, {r4-r11}         \n"
+
+        "ldr   r3, =current_tcb      \n"
+        "ldr   r2, [r3]              \n"
+        "str   r0, [r2]              \n"
+
+        "ldr   r3, =next_tcb         \n"
+        "ldr   r2, [r3]              \n"
+
+        "ldr   r3, =current_tcb      \n"
+        "str   r2, [r3]              \n"
+
+        "ldr   r0, [r2]              \n"
+        "ldmia r0!, {r4-r11}         \n"
+        "msr   psp, r0               \n"
+        "bx    lr                    \n"
+
+        /* 第一次启动 */
+        "first_start:                \n"
+        "movs  r2, #0                \n"
+        "str   r2, [r3]              \n"
+
+        "ldr   r3, =next_tcb         \n"
+        "ldr   r3, [r3]              \n"
+        "ldr   r0, [r3]              \n"
+
+        "ldr   r1, =current_tcb      \n"
+        "str   r3, [r1]              \n"
+
+        "ldmia r0!, {r4-r11}         \n"
+        "msr   psp, r0               \n"
+
+        "movs  r0, #2                \n"
+        "msr   control, r0           \n"
+        "isb                         \n"
+
+        "ldr   lr, =0xFFFFFFFD       \n"
+        "bx    lr                    \n"
+    );
 }
-
 /**
   * @brief This function handles System tick timer.
   */
-void SysTick_Handler(void)
-{
-  /* USER CODE BEGIN SysTick_IRQn 0 */
+void SysTick_Handler(void) {
+    /* USER CODE BEGIN SysTick_IRQn 0 */
 
-  /* USER CODE END SysTick_IRQn 0 */
-  HAL_IncTick();
-  /* USER CODE BEGIN SysTick_IRQn 1 */
+    /* USER CODE END SysTick_IRQn 0 */
+    HAL_IncTick();
+    os_tick++;
+    ptOS_Tick();
+    /* USER CODE BEGIN SysTick_IRQn 1 */
 
-  /* USER CODE END SysTick_IRQn 1 */
+    /* USER CODE END SysTick_IRQn 1 */
 }
 
 /******************************************************************************/

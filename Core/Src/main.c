@@ -81,10 +81,6 @@ int add(void) {
   */
 int main(void)
 {
-    int a = 0;
-    for (int i = 0; i < 3; i++) {
-        a = add();
-    }
 // int a = 1;
   /* USER CODE BEGIN 1 */
 //     uint32_t a = 10;
@@ -97,9 +93,6 @@ int main(void)
 //     : [a] "r" (a),
 //       [b] "r" (b)
 // );
-    uint32_t result;
-
-    result = asm_threeadd(1, 2, 3);
 
   /* USER CODE END 1 */
 
@@ -135,8 +128,8 @@ int main(void)
     HAL_TIM_Base_Start_IT(&htim17);
     HAL_NVIC_SetPriority(SysTick_IRQn, 14, 0);
     HAL_NVIC_SetPriority(PendSV_IRQn, 15, 0);
-    ptOS_Init();
-    ptOS_Start();
+    pt_kernel_initialize();
+    pt_kernel_start();
   /* USER CODE END 2 */
 
   /* Infinite loop */

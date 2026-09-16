@@ -181,7 +181,7 @@ __attribute__((naked)) void PendSV_Handler(void) {
     __asm volatile (
 
     /* 判断是否第一次启动 */
-    "ldr   r3, =ptOS_start_first \n"
+    "ldr   r3, =pt_thread_start_first \n"
     "ldr   r2, [r3]              \n"
     "cmp   r2, #1                \n"
     "beq   first_start           \n"
@@ -237,7 +237,7 @@ void SysTick_Handler(void) {
     /* USER CODE END SysTick_IRQn 0 */
     HAL_IncTick();
     os_tick++;
-    ptOS_Tick();
+    pt_timer_interrupt();
     /* USER CODE BEGIN SysTick_IRQn 1 */
 
     /* USER CODE END SysTick_IRQn 1 */

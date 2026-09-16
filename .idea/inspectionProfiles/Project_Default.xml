@@ -1,0 +1,12 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="ClangTidy" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="CppDFAEndlessLoop" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="CppJoinDeclarationAndAssignment" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="CppParameterMayBeConstPtrOrRef" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="CppVariableCanBeMadeConstexpr" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="CppZeroConstantCanBeReplacedWithNullptr" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+    <inspection_tool class="StdIsConstantEvaluatedWillAlwaysEvaluateToConstant" enabled="true" level="HINT" enabled_by_default="true" editorAttributes="HINT" />
+  </profile>
+</component>

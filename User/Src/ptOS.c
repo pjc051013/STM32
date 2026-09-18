@@ -4,24 +4,21 @@
 #include "main.h"
 
 #define TASK_STACK_WORDS 128U
-#define NORMAL_TASK_COUNT 4U
+#define NORMAL_TASK_COUNT 3U
 #define TASK_COUNT        (NORMAL_TASK_COUNT + 1U)
 
 static TCB_t task1_tcb;
 static TCB_t task2_tcb;
 static TCB_t busy_tcb;
-static TCB_t semaphore_task_tcb;
 static TCB_t idle_tcb;
 
 static uint32_t task1_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 static uint32_t task2_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 static uint32_t busy_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
-static uint32_t semaphore_task_stack[TASK_STACK_WORDS]
-    __attribute__((aligned(8)));
 static uint32_t idle_stack[TASK_STACK_WORDS] __attribute__((aligned(8)));
 
 static TCB_t *const task_list[TASK_COUNT] = {
-    &task1_tcb, &task2_tcb, &busy_tcb, &semaphore_task_tcb, &idle_tcb
+    &task1_tcb, &task2_tcb, &busy_tcb, &idle_tcb
 };
 
 volatile uint32_t os_tick;
@@ -31,22 +28,13 @@ TCB_t *next_tcb;
 static uint32_t rr_cursor;
 static volatile uint32_t busy_counter;
 static volatile uint32_t busy_led_divider;
-static pt_binary_semaphore_t semaphore_start;
-/* task1 和 task2 共同访问这个资源。 */
-static pt_mutex_t shared_resource_mutex;
-static volatile uint32_t shared_resource_value;
 
 static void task1(void)
 {
     while (1)
     {
-        pt_mutex_get(&shared_resource_mutex);
-        shared_resource_value++;
-        pt_mutex_put(&shared_resource_mutex);
-
         HAL_GPIO_TogglePin(TEST_0_GPIO_Port, TEST_0_Pin);
         pt_thread_sleep(250U);
-        pt_binary_semaphore_put(&semaphore_start);
     }
 }
 
@@ -54,10 +42,6 @@ static void task2(void)
 {
     while (1)
     {
-        pt_mutex_get(&shared_resource_mutex);
-        shared_resource_value += 10U;
-        pt_mutex_put(&shared_resource_mutex);
-
         HAL_GPIO_TogglePin(TEST_1_GPIO_Port, TEST_1_Pin);
         pt_thread_sleep(500U);
     }
@@ -79,15 +63,6 @@ static void busy_task(void)
             HAL_GPIO_TogglePin(TEST_2_GPIO_Port, TEST_2_Pin);
             busy_led_divider = 0U;
         }
-    }
-}
-
-static void task_wait_semaphore(void)
-{
-    while (1)
-    {
-        pt_binary_semaphore_get(&semaphore_start);
-        HAL_GPIO_TogglePin(TEST_3_GPIO_Port, TEST_3_Pin);
     }
 }
 
@@ -234,52 +209,56 @@ void pt_kernel_initialize(void)
     task1_tcb.sp = pt_thread_stack_build(task1_stack, task1);
     task2_tcb.sp = pt_thread_stack_build(task2_stack, task2);
     busy_tcb.sp = pt_thread_stack_build(busy_stack, busy_task);
-    semaphore_task_tcb.sp = pt_thread_stack_build(semaphore_task_stack,
-                                                   task_wait_semaphore);
     idle_tcb.sp = pt_thread_stack_build(idle_stack, idle_task);
 
     task1_tcb.state = TASK_READY;
     task2_tcb.state = TASK_READY;
     busy_tcb.state = TASK_READY;
-    semaphore_task_tcb.state = TASK_READY;
     idle_tcb.state = TASK_READY;
     task1_tcb.semaphore_next = NULL;
     task2_tcb.semaphore_next = NULL;
     busy_tcb.semaphore_next = NULL;
-    semaphore_task_tcb.semaphore_next = NULL;
     idle_tcb.semaphore_next = NULL;
     task1_tcb.waiting_semaphore = NULL;
     task2_tcb.waiting_semaphore = NULL;
     busy_tcb.waiting_semaphore = NULL;
-    semaphore_task_tcb.waiting_semaphore = NULL;
     idle_tcb.waiting_semaphore = NULL;
     task1_tcb.mutex_next = NULL;
     task2_tcb.mutex_next = NULL;
     busy_tcb.mutex_next = NULL;
-    semaphore_task_tcb.mutex_next = NULL;
     idle_tcb.mutex_next = NULL;
     task1_tcb.waiting_mutex = NULL;
     task2_tcb.waiting_mutex = NULL;
     busy_tcb.waiting_mutex = NULL;
-    semaphore_task_tcb.waiting_mutex = NULL;
     idle_tcb.waiting_mutex = NULL;
+    task1_tcb.owned_mutexes = NULL;
+    task2_tcb.owned_mutexes = NULL;
+    busy_tcb.owned_mutexes = NULL;
+    idle_tcb.owned_mutexes = NULL;
+    task1_tcb.wait_deadline = PT_WAIT_FOREVER;
+    task2_tcb.wait_deadline = PT_WAIT_FOREVER;
+    busy_tcb.wait_deadline = PT_WAIT_FOREVER;
+    idle_tcb.wait_deadline = PT_WAIT_FOREVER;
+    task1_tcb.wait_result = 0U;
+    task2_tcb.wait_result = 0U;
+    busy_tcb.wait_result = 0U;
+    idle_tcb.wait_result = 0U;
     task1_tcb.wake_tick = 0U;
     task2_tcb.wake_tick = 0U;
     busy_tcb.wake_tick = 0U;
-    semaphore_task_tcb.wake_tick = 0U;
     idle_tcb.wake_tick = 0U;
     task1_tcb.priority = 1U;
     task2_tcb.priority = 1U;
     busy_tcb.priority = 1U;
-    semaphore_task_tcb.priority = 1U;
     idle_tcb.priority = UINT8_MAX;
+    task1_tcb.base_priority = task1_tcb.priority;
+    task2_tcb.base_priority = task2_tcb.priority;
+    busy_tcb.base_priority = busy_tcb.priority;
+    idle_tcb.base_priority = idle_tcb.priority;
 
     os_tick = 0U;
     busy_counter = 0U;
     busy_led_divider = 0U;
-    shared_resource_value = 0U;
-    pt_mutex_init(&shared_resource_mutex);
-    pt_binary_semaphore_init(&semaphore_start, 0U);
     rr_cursor = 0U;
     current_tcb = &task1_tcb;
     next_tcb = &task1_tcb;
@@ -374,9 +353,107 @@ void pt_mutex_init(pt_mutex_t *mutex)
     mutex->lock_count = 0U;
     mutex->wait_head = NULL;
     mutex->wait_tail = NULL;
+    mutex->owner_next = NULL;
 }
 
-void pt_mutex_get(pt_mutex_t *mutex)
+static void pt_mutex_add_owned_locked(pt_mutex_t *mutex, TCB_t *owner)
+{
+    mutex->owner_next = owner->owned_mutexes;
+    owner->owned_mutexes = mutex;
+}
+
+static void pt_mutex_remove_owned_locked(pt_mutex_t *mutex, TCB_t *owner)
+{
+    pt_mutex_t *previous = NULL;
+    pt_mutex_t *owned = owner->owned_mutexes;
+
+    while (owned != NULL)
+    {
+        if (owned == mutex)
+        {
+            if (previous == NULL)
+            {
+                owner->owned_mutexes = owned->owner_next;
+            }
+            else
+            {
+                previous->owner_next = owned->owner_next;
+            }
+            owned->owner_next = NULL;
+            return;
+        }
+
+        previous = owned;
+        owned = owned->owner_next;
+    }
+}
+
+static void pt_mutex_recalculate_priority_locked(TCB_t *task)
+{
+    uint8_t priority = task->base_priority;
+    pt_mutex_t *mutex = task->owned_mutexes;
+
+    while (mutex != NULL)
+    {
+        TCB_t *waiter = mutex->wait_head;
+        while (waiter != NULL)
+        {
+            if (waiter->priority < priority)
+            {
+                priority = waiter->priority;
+            }
+            waiter = waiter->mutex_next;
+        }
+        mutex = mutex->owner_next;
+    }
+
+    task->priority = priority;
+}
+
+static void pt_mutex_inherit_priority_locked(TCB_t *waiter,
+                                             pt_mutex_t *mutex)
+{
+    TCB_t *owner = mutex->owner;
+
+    while (owner != NULL && waiter->priority < owner->priority)
+    {
+        owner->priority = waiter->priority;
+        if (owner->waiting_mutex == NULL)
+        {
+            break;
+        }
+        owner = owner->waiting_mutex->owner;
+    }
+}
+
+static void pt_mutex_insert_waiter_locked(pt_mutex_t *mutex, TCB_t *task)
+{
+    TCB_t *previous = NULL;
+    TCB_t *current = mutex->wait_head;
+
+    while (current != NULL && current->priority <= task->priority)
+    {
+        previous = current;
+        current = current->mutex_next;
+    }
+
+    task->mutex_next = current;
+    if (previous == NULL)
+    {
+        mutex->wait_head = task;
+    }
+    else
+    {
+        previous->mutex_next = task;
+    }
+
+    if (current == NULL)
+    {
+        mutex->wait_tail = task;
+    }
+}
+
+uint32_t pt_mutex_get(pt_mutex_t *mutex, uint32_t wait_ticks)
 {
     TCB_t *selected;
     uint32_t primask = __get_PRIMASK();
@@ -386,33 +463,68 @@ void pt_mutex_get(pt_mutex_t *mutex)
     {
         mutex->owner = current_tcb;
         mutex->lock_count = 1U;
+        pt_mutex_add_owned_locked(mutex, current_tcb);
         __set_PRIMASK(primask);
-        return;
+        return 1U;
     }
 
     if (mutex->owner == current_tcb)
     {
         mutex->lock_count++;
         __set_PRIMASK(primask);
-        return;
+        return 1U;
+    }
+
+    if (wait_ticks == 0U)
+    {
+        __set_PRIMASK(primask);
+        return 0U;
     }
 
     current_tcb->mutex_next = NULL;
     current_tcb->waiting_mutex = mutex;
-    if (mutex->wait_tail == NULL)
-    {
-        mutex->wait_head = current_tcb;
-    }
-    else
-    {
-        mutex->wait_tail->mutex_next = current_tcb;
-    }
-    mutex->wait_tail = current_tcb;
+    current_tcb->wait_deadline = (wait_ticks == PT_WAIT_FOREVER) ?
+                                  PT_WAIT_FOREVER : os_tick + wait_ticks;
+    current_tcb->wait_result = 0U;
+    pt_mutex_insert_waiter_locked(mutex, current_tcb);
+    pt_mutex_inherit_priority_locked(current_tcb, mutex);
     current_tcb->state = TASK_BLOCKED;
 
     selected = pt_thread_schedule();
     pt_thread_context_switch(selected);
     __set_PRIMASK(primask);
+    return current_tcb->wait_result;
+}
+
+static void pt_mutex_remove_waiter_locked(pt_mutex_t *mutex, TCB_t *target)
+{
+    TCB_t *previous = NULL;
+    TCB_t *task = mutex->wait_head;
+
+    while (task != NULL)
+    {
+        if (task == target)
+        {
+            if (previous == NULL)
+            {
+                mutex->wait_head = task->mutex_next;
+            }
+            else
+            {
+                previous->mutex_next = task->mutex_next;
+            }
+
+            if (mutex->wait_tail == task)
+            {
+                mutex->wait_tail = previous;
+            }
+            task->mutex_next = NULL;
+            return;
+        }
+
+        previous = task;
+        task = task->mutex_next;
+    }
 }
 
 uint32_t pt_mutex_put(pt_mutex_t *mutex)
@@ -438,7 +550,9 @@ uint32_t pt_mutex_put(pt_mutex_t *mutex)
     task = mutex->wait_head;
     if (task == NULL)
     {
+        pt_mutex_remove_owned_locked(mutex, current_tcb);
         mutex->owner = NULL;
+        pt_mutex_recalculate_priority_locked(current_tcb);
         __set_PRIMASK(primask);
         return 1U;
     }
@@ -449,11 +563,17 @@ uint32_t pt_mutex_put(pt_mutex_t *mutex)
         mutex->wait_tail = NULL;
     }
 
+    pt_mutex_remove_owned_locked(mutex, current_tcb);
     task->mutex_next = NULL;
     task->waiting_mutex = NULL;
+    task->wait_deadline = PT_WAIT_FOREVER;
+    task->wait_result = 1U;
     task->state = TASK_READY;
     mutex->owner = task;
     mutex->lock_count = 1U;
+    pt_mutex_add_owned_locked(mutex, task);
+    pt_mutex_recalculate_priority_locked(current_tcb);
+    pt_mutex_recalculate_priority_locked(task);
 
     if (current_tcb != &idle_tcb &&
         current_tcb->state == TASK_RUNNING)
@@ -497,6 +617,7 @@ void pt_thread_sleep(uint32_t ticks)
     current_tcb->wake_tick = os_tick + ticks;
     current_tcb->waiting_semaphore = NULL;
     current_tcb->waiting_mutex = NULL;
+    current_tcb->wait_deadline = PT_WAIT_FOREVER;
     current_tcb->state = TASK_BLOCKED;
     selected = pt_thread_schedule();
     pt_thread_context_switch(selected);
@@ -530,6 +651,22 @@ void pt_timer_interrupt(void)
             task->waiting_mutex == NULL &&
             (int32_t)(os_tick - task->wake_tick) >= 0)
         {
+            task->state = TASK_READY;
+        }
+        else if (task->state == TASK_BLOCKED &&
+                 task->waiting_mutex != NULL &&
+                 task->wait_deadline != PT_WAIT_FOREVER &&
+                 (int32_t)(os_tick - task->wait_deadline) >= 0)
+        {
+            pt_mutex_t *mutex = task->waiting_mutex;
+            pt_mutex_remove_waiter_locked(mutex, task);
+            if (mutex->owner != NULL)
+            {
+                pt_mutex_recalculate_priority_locked(mutex->owner);
+            }
+            task->waiting_mutex = NULL;
+            task->wait_deadline = PT_WAIT_FOREVER;
+            task->wait_result = 0U;
             task->state = TASK_READY;
         }
     }

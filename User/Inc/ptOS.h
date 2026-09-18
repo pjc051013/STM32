@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define PT_WAIT_FOREVER UINT32_MAX
+
 typedef enum {
     TASK_READY,
     TASK_BLOCKED,
@@ -26,6 +28,7 @@ struct pt_mutex {
     uint32_t lock_count;
     TCB_t *wait_head;
     TCB_t *wait_tail;
+    pt_mutex_t *owner_next;
 };
 
 struct TCB {
@@ -33,10 +36,14 @@ struct TCB {
     TaskState state;
     uint32_t wake_tick;
     uint8_t priority;
+    uint8_t base_priority;
     TCB_t *semaphore_next;
     pt_semaphore_t *waiting_semaphore;
     TCB_t *mutex_next;
     pt_mutex_t *waiting_mutex;
+    pt_mutex_t *owned_mutexes;
+    uint32_t wait_deadline;
+    uint32_t wait_result;
 };
 
 extern volatile uint32_t pt_thread_start_first;
@@ -68,7 +75,7 @@ void pt_binary_semaphore_put(pt_binary_semaphore_t *semaphore);
 void pt_binary_semaphore_put_from_isr(pt_binary_semaphore_t *semaphore);
 
 void pt_mutex_init(pt_mutex_t *mutex);
-void pt_mutex_get(pt_mutex_t *mutex);
+uint32_t pt_mutex_get(pt_mutex_t *mutex, uint32_t wait_ticks);
 uint32_t pt_mutex_put(pt_mutex_t *mutex);
 
 #endif

@@ -237,9 +237,20 @@ void SysTick_Handler(void) {
     /* USER CODE END SysTick_IRQn 0 */
     HAL_IncTick();
     os_tick++;
+    // uint32_t first;
+    // uint32_t second;
     pt_timer_interrupt();
+    // first = (uint32_t)current_tcb;
     /* USER CODE BEGIN SysTick_IRQn 1 */
-
+    // (void)pt_mutex_get(&shared_resource_mutex, PT_WAIT_FOREVER);
+    // shared_resource_value += 1U;
+    // (void)pt_mutex_put(&shared_resource_mutex);
+    // second = (uint32_t)current_tcb;
+    // if (first != second) {
+    //     while (1) {
+    //
+    //     }
+    // }
     /* USER CODE END SysTick_IRQn 1 */
 }
 
